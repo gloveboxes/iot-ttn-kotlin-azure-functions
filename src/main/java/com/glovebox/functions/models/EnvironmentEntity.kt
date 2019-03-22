@@ -10,7 +10,7 @@ class EnvironmentEntity : TableServiceEntity() {
     @SerializedName(value = "battery", alternate = ["Battery"])
     var battery: Double? = null
 
-    @SerializedName(value = "celsius", alternate = ["Temperature", "temperature", "Celsius"])
+    @SerializedName(value = "celsius", alternate = ["Temperature", "temperature", "Celsius", "temp", "Temp"])
     var celsius: Double? = null
 
     @SerializedName(value = "humidity", alternate = ["Humidity"])
