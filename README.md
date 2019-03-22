@@ -61,7 +61,7 @@ Click the Cloud Shell symbol >_ then select Bash.
 
 ![Azure CLI](./resources/azure-cli.png) select Bash
 
-### STEP 3: Create a Resource Group
+### STEP 3: Create the Project Resource Group
 
 Copy and paste the following command into the Bash Cloud Shell
 
