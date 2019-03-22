@@ -11,6 +11,8 @@
 
 The following diagram is a typical IoT solution. The boxes **highlighted in blue** are the areas covered in this walk through as this focuses on extending Azure IoT Hub with serverless Azure Functions written in Kotlin, updating a Device State table and driving simple web data visualisation app via the Azure SignalR Service.
 
+For more background information about Azure IoT Hub based solutions then be sure to review the [Azure IoT Reference Architecture Guide](https://azure.microsoft.com/en-au/blog/azure-iot-reference-architecture-update/).
+
 ![Solution Architecture](./resources/solution.png)
 
 ## Set up Requirements
