@@ -55,7 +55,9 @@ If you don't have an [Azure subscription](https://docs.microsoft.com/azure/guide
 
 ### STEP 1: Start the Azure Cloud Shell
 
-From the Azure Portal start the Cloud Shell (Highlighted in RED)
+From the Azure Portal start the Cloud Shell (Highlighted in RED).
+
+Click the Cloud Shell symbol (>_), then select Bash.
 
 ![Azure CLI](./resources/azure-cli.png) select Bash
 
