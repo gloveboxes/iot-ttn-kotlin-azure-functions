@@ -45,7 +45,7 @@ To develop a function with Java and IntelliJ, install the following software:
 
 Referenced from [az iot hub](https://docs.microsoft.com/en-us/cli/azure/iot/hub?view=azure-cli-latest)
 
-### STEP 0: Sign in to your Azure Subscription
+### STEP 1: Sign in to your Azure Subscription
 
 If you don't have an [Azure subscription](https://docs.microsoft.com/azure/guides/developer/azure-developer-guide#understanding-accounts-subscriptions-and-billing), create a [free account](https://azure.microsoft.com/free/?ref=microsoft.com&utm_source=microsoft.com&utm_medium=docs&utm_campaign=visualstudio) before you begin.
 
@@ -53,15 +53,13 @@ If you don't have an [Azure subscription](https://docs.microsoft.com/azure/guide
 >
 > If you are a student then signup with [Azure for Students](https://azure.microsoft.com/en-us/free/students/). No credit card is required
 
-### STEP 1: Start the Azure Cloud Shell
+### STEP 2: Start the Azure Cloud Shell
 
 From the Azure Portal start the Cloud Shell (Highlighted in RED).
 
 Click the Cloud Shell symbol >_ then select Bash.
 
 ![Azure CLI](./resources/azure-cli.png) select Bash
-
-### STEP 2: Select Bash
 
 ### STEP 3: Create a Resource Group
 
