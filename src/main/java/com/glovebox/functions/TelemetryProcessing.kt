@@ -26,25 +26,25 @@ import java.util.*
 
 class TelemetryProcessing {
 
+    private val _partitionKey: String = System.getenv("PartitionKey")
+
     private val storageConnectionString = System.getenv("StorageConnectionString")
     private val storageAccount: CloudStorageAccount = CloudStorageAccount.parse(storageConnectionString)
     private val tableClient: CloudTableClient = storageAccount.createCloudTableClient()
-    private val deviceStateTable: CloudTable = tableClient.getTableReference("DeviceState")
-    private val calibrationTable: CloudTable = tableClient.getTableReference("Calibration")
+    private val deviceStateTable: CloudTable = getTableReference(tableClient, "DeviceState")
+    private val calibrationTable: CloudTable = getTableReference(tableClient, "Calibration")
     private var top: TableOperation? = null
 
-    private val _partitionKey: String = System.getenv("PartitionKey")
-    private val signalRUrl: String = System.getenv("AzureSignalRUrl")
+    private val signalRUrl: String? = System.getenv("AzureSignalRUrl")
 
 
     /**
      * This function will be invoked when an event is received from Event Hub.
      */
     @FunctionName("TelemetryProcessing")
-    @Throws(URISyntaxException::class, InvalidKeyException::class)
     fun run(
-            @EventHubTrigger(name = "devicesEventHub", eventHubName = "devices", connection = "EventHubListenerCS", consumerGroup = "telemetry-processor", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
-//            @EventHubTrigger(name = "devicesEventHub", eventHubName = "messages/events", connection = "EventHubListenerCS", consumerGroup = "\$Default", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
+//            @EventHubTrigger(name = "devicesEventHub", eventHubName = "devices", connection = "EventHubListenerCS", consumerGroup = "telemetry-processor", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
+            @EventHubTrigger(name = "devicesEventHub", eventHubName = "messages/events", connection = "IotHubConnectionString", consumerGroup = "telemetry-processor", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
             context: ExecutionContext
     ) {
 
@@ -64,12 +64,11 @@ class TelemetryProcessing {
                 top = TableOperation.retrieve(_partitionKey, environment.deviceId, CalibrationEntity::class.java)
                 val calibrationData = calibrationTable.execute(top).getResultAsType<CalibrationEntity>()
 
-
                 with(environment) {
                     calibrationData?.let {
-                        celsius = round(celsius!! * it.TemperatureSlope!! + it.TemperatureYIntercept!!)
-                        humidity = round(humidity!! * it.HumiditySlope!! + it.HumidityYIntercept!!)
-                        hPa = round(hPa!! * it.PressureSlope!! + it.PressureYIntercept!!)
+                        celsius = scale(celsius, it.TemperatureSlope, it.TemperatureYIntercept)
+                        humidity = scale(humidity, it.HumiditySlope, it.HumidityYIntercept)
+                        hPa = scale(hPa, it.PressureSlope, it.PressureYIntercept)
                     }
 
                     partitionKey = _partitionKey
@@ -80,13 +79,13 @@ class TelemetryProcessing {
 
                 // https://docs.microsoft.com/en-us/azure/cosmos-db/table-storage-how-to-use-java
                 top = TableOperation.insertOrReplace(environment)
-                deviceStateTable.execute(top!!)
+                deviceStateTable.execute(top)
 
 
                 val gson = GsonBuilder().create()
                 val json = gson.toJson(environment)
 
-                if (postRequest(URL(signalRUrl), json) != HttpURLConnection.HTTP_OK) {
+                if (postRequest(json) != HttpURLConnection.HTTP_OK) {
                     context.logger.info("POST to SignalR failed")
                 }
 
@@ -101,12 +100,17 @@ class TelemetryProcessing {
     }
 
 
-    private fun postRequest(url: URL, message: String): Int {
+    private fun postRequest(message: String): Int {
         // https://stackoverflow.com/questions/48387708/azure-java-function-failing-while-making-outbound-rest-call-socketexception-p
         // prefer IPv4 needed on Azure otherwise socket exception thrown
+
+        if (isNullOrEmpty(signalRUrl)) {
+            return 200
+        }
+
         System.setProperty("java.net.preferIPv4Stack", "true")
 
-        val postConnection = url.openConnection() as HttpURLConnection
+        val postConnection = URL(signalRUrl).openConnection() as HttpURLConnection
         postConnection.requestMethod = "POST"
         postConnection.setRequestProperty("Content-Type", "application/json")
         postConnection.doOutput = true
@@ -143,8 +147,46 @@ class TelemetryProcessing {
         return true
     }
 
+    private fun scale(value: Double?, slope: Double?, intercept: Double?): Double? {
+        if (value == null || slope == null || intercept == null) {
+            return value
+        }
+        return round(value * slope + intercept)
+
+    }
+
 
     private fun round(value: Double): Double {
         return BigDecimal(value).setScale(2, RoundingMode.HALF_EVEN).toDouble()
+    }
+
+    private fun getTableReference(tableClient: CloudTableClient, tableName: String): CloudTable {
+        val cloudTable = tableClient.getTableReference(tableName)
+        val result = cloudTable.createIfNotExists() // returns true if the table was created
+
+        // for demo purposes only. Adds some dummy calibration data
+        if (result && tableName.equals("Calibration")) {
+            val calibration = CalibrationEntity()
+            with(calibration) {
+                partitionKey = _partitionKey
+                rowKey = "Raspberry Pi"
+                TemperatureSlope = 1.0
+                TemperatureYIntercept = 0.0
+                PressureSlope = 1.0
+                PressureYIntercept = 0.0
+                HumiditySlope = 1.0
+                HumidityYIntercept = 0.0
+            }
+
+            top = TableOperation.insertOrReplace(calibration)
+            cloudTable.execute(top)
+        }
+        return cloudTable
+    }
+
+    fun isNullOrEmpty(str: String?): Boolean {
+        if (str != null && !str.trim().isEmpty())
+            return false
+        return true
     }
 }
