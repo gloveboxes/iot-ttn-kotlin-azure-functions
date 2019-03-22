@@ -9,6 +9,8 @@
 
 ## Solution Overview
 
+The following diagram is a typical IoT solution. The boxes **highlighted in blue** are the areas covered in this walk through as this focuses on extending Azure IoT Hub with serverless Azure Functions written in Kotlin, updating a Device State table and driving simple web data visualisation app via the Azure SignalR Service.
+
 ![Solution Architecture](./resources/solution.png)
 
 ## Set up Requirements
@@ -23,11 +25,6 @@ This article shows you:
 
 <!-- TODO ![Access a Hello World function from the command line with cURL](media/functions-create-java-maven/hello-azure.png) -->
 
-If you don't have an [Azure subscription](https://docs.microsoft.com/azure/guides/developer/azure-developer-guide#understanding-accounts-subscriptions-and-billing), create a [free account](https://azure.microsoft.com/free/?ref=microsoft.com&utm_source=microsoft.com&utm_medium=docs&utm_campaign=visualstudio) before you begin. 
-
-> STUDENTS
->
-> If you are a student then signup with [Azure for Students](https://azure.microsoft.com/en-us/free/students/). No credit card is required
 
 ## Set up your development environment
 
@@ -46,6 +43,13 @@ To develop a function with Java and IntelliJ, install the following software:
 
 Referenced from [az iot hub](https://docs.microsoft.com/en-us/cli/azure/iot/hub?view=azure-cli-latest)
 
+### STEP 0: Sign in to your Azure Subscription
+
+If you don't have an [Azure subscription](https://docs.microsoft.com/azure/guides/developer/azure-developer-guide#understanding-accounts-subscriptions-and-billing), create a [free account](https://azure.microsoft.com/free/?ref=microsoft.com&utm_source=microsoft.com&utm_medium=docs&utm_campaign=visualstudio) before you begin.
+
+> STUDENTS
+>
+> If you are a student then signup with [Azure for Students](https://azure.microsoft.com/en-us/free/students/). No credit card is required
 
 ### STEP 1: Start the Azure Cloud Shell
 
@@ -115,7 +119,11 @@ az storage blob service-properties update --account-name kotlinstorage --static-
 az storage blob upload-batch -s <SOURCE_PATH> -d \$web --account-name <ACCOUNT_NAME>
 ```
 
+### STEP 12: Create SignalR Service
 
+```
+az signalr create --name SignalrService --resource-group KotlinResourceGroup --sku Free_DS2 --location westus
+```
 
 Follow these instructions: [Connect a Raspberry Pi online simulator to Azure IoT Hub](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-raspberry-pi-web-simulator-get-started)
 
