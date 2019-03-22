@@ -66,6 +66,6 @@ class SignalrSvc {
     private fun deviceState(): List<EnvironmentEntity> {
         val partitionFilter = TableQuery.generateFilterCondition("PartitionKey", QueryComparisons.EQUAL, partitionKey)
         val partitionQuery = TableQuery.from(EnvironmentEntity::class.java).where(partitionFilter)
-        return deviceStateTable.execute(partitionQuery).toList()
+        return deviceStateTable.execute(partitionQuery).sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER, { it.deviceId!! })).toList()
     }
 }

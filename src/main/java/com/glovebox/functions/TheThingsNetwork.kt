@@ -30,14 +30,14 @@ class TheThingsNetwork {
         }
 
         val environment = EnvironmentEntity()
-        environment.DeviceId = ttn.dev_id
-        environment.Geo = ttn.dev_id
-        environment.Id = ttn.counter
+        environment.deviceId = ttn.dev_id
+        environment.geo = ttn.dev_id
+        environment.id = ttn.counter
 
-        environment.Celsius = ttn.payload_fields!!.getOrDefault(key="temperature_1", defaultValue = null)
+        environment.celsius = ttn.payload_fields!!.getOrDefault(key="temperature_1", defaultValue = null)
         environment.hPa = ttn.payload_fields!!.getOrDefault(key="barometric_pressure_2", defaultValue = null)
-        environment.Humidity = ttn.payload_fields!!.getOrDefault(key="relative_humidity_3", defaultValue = null)
-        environment.Battery = ttn.payload_fields!!.getOrDefault(key="analog_in_4", defaultValue = null)
+        environment.humidity = ttn.payload_fields!!.getOrDefault(key="relative_humidity_3", defaultValue = null)
+        environment.battery = ttn.payload_fields!!.getOrDefault(key="analog_in_4", defaultValue = null)
 
         ttnOutData.value = environment
 

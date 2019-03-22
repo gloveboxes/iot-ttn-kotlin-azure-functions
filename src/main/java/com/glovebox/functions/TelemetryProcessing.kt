@@ -33,7 +33,7 @@ class TelemetryProcessing {
     private val calibrationTable: CloudTable = tableClient.getTableReference("Calibration")
     private var top: TableOperation? = null
 
-    private val partitionKey: String = System.getenv("PartitionKey")
+    private val _partitionKey: String = System.getenv("PartitionKey")
     private val signalRUrl: String = System.getenv("AzureSignalRUrl")
 
 
@@ -44,6 +44,7 @@ class TelemetryProcessing {
     @Throws(URISyntaxException::class, InvalidKeyException::class)
     fun run(
             @EventHubTrigger(name = "devicesEventHub", eventHubName = "devices", connection = "EventHubListenerCS", consumerGroup = "telemetry-processor", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
+//            @EventHubTrigger(name = "devicesEventHub", eventHubName = "messages/events", connection = "EventHubListenerCS", consumerGroup = "\$Default", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
             context: ExecutionContext
     ) {
 
@@ -60,18 +61,21 @@ class TelemetryProcessing {
                 }
 
                 // https://docs.microsoft.com/en-us/azure/cosmos-db/table-storage-how-to-use-java
-                top = TableOperation.retrieve(partitionKey, environment.DeviceId, CalibrationEntity::class.java)
+                top = TableOperation.retrieve(_partitionKey, environment.deviceId, CalibrationEntity::class.java)
                 val calibrationData = calibrationTable.execute(top).getResultAsType<CalibrationEntity>()
 
-                if (calibrationData != null) {
-                    environment.Celsius = round(environment.Celsius!! * calibrationData.TemperatureSlope!! + calibrationData.TemperatureYIntercept!!)
-                    environment.Humidity = round(environment.Humidity!! * calibrationData.HumiditySlope!! + calibrationData.HumidityYIntercept!!)
-                    environment.hPa = round(environment.hPa!! * calibrationData.PressureSlope!! + calibrationData.PressureYIntercept!!)
-                }
 
-                environment.partitionKey = partitionKey
-                environment.rowKey = environment.DeviceId
-                environment.timestamp = Date()
+                with(environment) {
+                    calibrationData?.let {
+                        celsius = round(celsius!! * it.TemperatureSlope!! + it.TemperatureYIntercept!!)
+                        humidity = round(humidity!! * it.HumiditySlope!! + it.HumidityYIntercept!!)
+                        hPa = round(hPa!! * it.PressureSlope!! + it.PressureYIntercept!!)
+                    }
+
+                    partitionKey = _partitionKey
+                    rowKey = environment.deviceId
+                    timestamp = Date()
+                }
 
 
                 // https://docs.microsoft.com/en-us/azure/cosmos-db/table-storage-how-to-use-java
@@ -118,16 +122,22 @@ class TelemetryProcessing {
 
     private fun validateTelemetry(telemetry: EnvironmentEntity): Boolean {
 
-        if (telemetry.Celsius != null && (telemetry.Celsius!! < -10 || telemetry.Celsius!! > 70)) {
-            return false
+        telemetry.celsius?.let {
+            if (it < -10 || it > 70) {
+                return@validateTelemetry false
+            }
         }
 
-        if (telemetry.Humidity != null && (telemetry.Humidity!! < 0 || telemetry.Humidity!! > 100)) {
-            return false
+        telemetry.humidity?.let {
+            if (it < 0 || it > 100) {
+                return@validateTelemetry false
+            }
         }
 
-        if (telemetry.hPa != null && (telemetry.hPa!! < 0 || telemetry.hPa!! > 1400)) {
-            return false
+        telemetry.hPa?.let {
+            if (it < 0 || it > 1500) {
+                return@validateTelemetry false
+            }
         }
 
         return true
