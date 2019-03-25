@@ -83,6 +83,34 @@ az iot hub create --resource-group KotlinResourceGroup --name MyIotHub --sku F1 
 az iot hub consumer-group create --hub-name MyIotHub --name telemetry-processor
 ```
 
+
+
+Follow these instructions: [Connect a Raspberry Pi online simulator to Azure IoT Hub](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-raspberry-pi-web-simulator-get-started)
+
+![Raspberry Pi Simulator](./resources/raspberrypi.png)
+
+## Devices
+
+### MXChip
+
+If you have an MXChip Device then follow the [Connect IoT DevKit AZ3166 to Azure IoT Hub](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-arduino-iot-devkit-az3166-get-started)
+
+![MXChip](./resources/mxchip.png)
+
+### Other
+
+Also see [getting started with Azure IoT Hub and connecting physical devices](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-get-started-physical)
+
+## Create an Azure IoT Hub Consumer Group
+
+## Kotlin Azure Functions
+
+Clone the following GitHub repo
+
+```bash
+git clone https://github.com/gloveboxes/iot-ttn-kotlin-azure-functions.git
+```
+
 ### STEP 6: Create an Azure Storage Account
 
 ```bash
@@ -127,31 +155,7 @@ az storage blob upload-batch -s <SOURCE_PATH> -d \$web --account-name <ACCOUNT_N
 az signalr create --name SignalrService --resource-group KotlinResourceGroup --sku Free_DS2 --location westus
 ```
 
-Follow these instructions: [Connect a Raspberry Pi online simulator to Azure IoT Hub](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-raspberry-pi-web-simulator-get-started)
 
-![Raspberry Pi Simulator](./resources/raspberrypi.png)
-
-## Devices
-
-### MXChip
-
-If you have an MXChip Device then follow the [Connect IoT DevKit AZ3166 to Azure IoT Hub](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-arduino-iot-devkit-az3166-get-started)
-
-![MXChip](./resources/mxchip.png)
-
-### Other
-
-Also see [getting started with Azure IoT Hub and connecting physical devices](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-get-started-physical)
-
-## Create an Azure IoT Hub Consumer Group
-
-## Kotlin Azure Functions
-
-Clone the following GitHub repo
-
-```bash
-git clone https://github.com/gloveboxes/iot-ttn-kotlin-azure-functions.git
-```
 
 ## Open the solution with IntelliJ
 
