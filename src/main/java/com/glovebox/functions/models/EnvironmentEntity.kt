@@ -10,17 +10,14 @@ class EnvironmentEntity : TableServiceEntity() {
     @SerializedName(value = "battery", alternate = ["Battery"])
     var battery: Double? = null
 
-    @SerializedName(value = "celsius", alternate = ["Temperature", "temperature", "Celsius", "temp", "Temp"])
-    var celsius: Double? = null
+    @SerializedName(value = "temperature", alternate = ["Temperature", "Celsius", "temp", "Temp"])
+    var temperature: Double? = null
 
     @SerializedName(value = "humidity", alternate = ["Humidity"])
     var humidity: Double? = null
 
-    @SerializedName(value = "hPa", alternate = ["Pressure", "pressure"])
-    var hPa: Double? = null
-
-    @SerializedName(value = "light", alternate = ["Light"])
-    var light: Double? = null
+    @SerializedName(value = "pressure", alternate = ["Pressure", "hPa"])
+    var pressure: Double? = null
 
     @SerializedName(value = "geo", alternate = ["Geo"])
     var geo: String? = null
@@ -30,4 +27,8 @@ class EnvironmentEntity : TableServiceEntity() {
 
     @SerializedName(value = "Id", alternate = ["messageId"])
     var id: Int = 0
+
+//    @SerializedName(value = "count", alternate = ["Count"])
+    var count: Int = 0
+
 }

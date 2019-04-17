@@ -1,6 +1,5 @@
 package com.glovebox.functions
 
-
 import com.glovebox.functions.models.*
 import com.google.gson.GsonBuilder
 import com.microsoft.azure.functions.ExecutionContext
@@ -8,21 +7,19 @@ import com.microsoft.azure.functions.annotation.Cardinality
 import com.microsoft.azure.functions.annotation.EventHubTrigger
 import com.microsoft.azure.functions.annotation.FunctionName
 import com.microsoft.azure.storage.CloudStorageAccount
-import com.microsoft.azure.storage.StorageException
 import com.microsoft.azure.storage.table.CloudTable
 import com.microsoft.azure.storage.table.CloudTableClient
 import com.microsoft.azure.storage.table.TableOperation
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.net.HttpURLConnection
-import java.net.URISyntaxException
 import java.net.URL
-import java.security.InvalidKeyException
 import java.util.*
 
 // https://aspnetmonsters.com/2016/08/2016-08-27-httpclientwrong/
 // https://dzone.com/articles/running-kotlin-in-azure-functions
 // https://azure-samples.github.io/signalr-service-quickstart-serverless-chat/demo/chat-v2/
+// https://docs.microsoft.com/en-us/azure/cosmos-db/table-storage-how-to-use-java
 
 class TelemetryProcessing {
 
@@ -38,67 +35,82 @@ class TelemetryProcessing {
     private val signalRUrl: String? = System.getenv("AzureSignalRUrl")
 
 
-    /**
-     * This function will be invoked when an event is received from Event Hub.
-     */
     @FunctionName("TelemetryProcessing")
     fun run(
-//            @EventHubTrigger(name = "devicesEventHub", eventHubName = "devices", connection = "EventHubListenerCS", consumerGroup = "telemetry-processor", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
             @EventHubTrigger(name = "devicesEventHub", eventHubName = "messages/events", connection = "IotHubConnectionString", consumerGroup = "telemetry-processor", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
             context: ExecutionContext
     ) {
-
-        context.logger.info("Java Event Hub trigger function executed.")
-        context.logger.info("Message Count:" + message.size)
+        var maxRetry:Int
 
         message.forEach { environment ->
 
-            try {
+            maxRetry = 0
 
-                if (!validateTelemetry(environment)) {
-                    context.logger.info("Data failed validation.")
-                    return
-                }
+            while (maxRetry < 10) {
+                maxRetry++
 
-                // https://docs.microsoft.com/en-us/azure/cosmos-db/table-storage-how-to-use-java
-                top = TableOperation.retrieve(_partitionKey, environment.deviceId, CalibrationEntity::class.java)
-                val calibrationData = calibrationTable.execute(top).getResultAsType<CalibrationEntity>()
+                try {
+                    top = TableOperation.retrieve(_partitionKey, environment.deviceId, EnvironmentEntity::class.java)
 
-                with(environment) {
-                    calibrationData?.let {
-                        celsius = scale(celsius, it.TemperatureSlope, it.TemperatureYIntercept)
-                        humidity = scale(humidity, it.HumiditySlope, it.HumidityYIntercept)
-                        hPa = scale(hPa, it.PressureSlope, it.PressureYIntercept)
+                    var existingEntity: EnvironmentEntity? = null
+                    val result = deviceStateTable.execute(top)
+                    if (result.etag != null) {
+                        existingEntity = result.getResultAsType()
                     }
 
-                    partitionKey = _partitionKey
-                    rowKey = environment.deviceId
-                    timestamp = Date()
+                    calibrate(environment)
+
+                    if (!validateTelemetry(environment)) {
+                        context.logger.info("Data failed validation.")
+                        break
+                    }
+
+                    if (existingEntity?.etag != null) {
+                        environment.etag = existingEntity.etag
+                        environment.count = existingEntity.count
+                        environment.count++
+
+                        top = TableOperation.replace(environment)
+                        deviceStateTable.execute(top)
+                    } else {
+                        environment.count = 1
+                        top = TableOperation.insert(environment)
+                        deviceStateTable.execute(top)
+                    }
+
+                    val gson = GsonBuilder().create()
+                    val json = gson.toJson(environment)
+
+                    if (postRequest(json) != HttpURLConnection.HTTP_OK) {
+                        context.logger.info("POST to SignalR failed")
+                    }
+
+                    break
+
+                } catch (e: java.lang.Exception) {
+                    context.logger.info(e.message)
                 }
-
-
-                // https://docs.microsoft.com/en-us/azure/cosmos-db/table-storage-how-to-use-java
-                top = TableOperation.insertOrReplace(environment)
-                deviceStateTable.execute(top)
-
-
-                val gson = GsonBuilder().create()
-                val json = gson.toJson(environment)
-
-                if (postRequest(json) != HttpURLConnection.HTTP_OK) {
-                    context.logger.info("POST to SignalR failed")
-                }
-
-            } catch (e: Exception) {
-                context.logger.info(e.message)
-            } catch (e: URISyntaxException) {
-                context.logger.info(e.message)
-            } catch (e: StorageException) {
-                context.logger.info(e.message)
             }
         }
     }
 
+    private fun calibrate(environment: EnvironmentEntity) {
+        // https://docs.microsoft.com/en-us/azure/cosmos-db/table-storage-how-to-use-java
+        top = TableOperation.retrieve(_partitionKey, environment.deviceId, CalibrationEntity::class.java)
+        val calibrationData = calibrationTable.execute(top).getResultAsType<CalibrationEntity>()
+
+        with(environment) {
+            calibrationData?.let {
+                temperature = scale(temperature, it.TemperatureSlope, it.TemperatureYIntercept)
+                humidity = scale(humidity, it.HumiditySlope, it.HumidityYIntercept)
+                pressure = scale(pressure, it.PressureSlope, it.PressureYIntercept)
+            }
+
+            partitionKey = _partitionKey
+            rowKey = environment.deviceId
+            timestamp = Date()
+        }
+    }
 
     private fun postRequest(message: String): Int {
         // https://stackoverflow.com/questions/48387708/azure-java-function-failing-while-making-outbound-rest-call-socketexception-p
@@ -126,21 +138,21 @@ class TelemetryProcessing {
 
     private fun validateTelemetry(telemetry: EnvironmentEntity): Boolean {
 
-        telemetry.celsius?.let {
+        telemetry.temperature?.let {
             if (it < -10 || it > 70) {
-                return@validateTelemetry false
+                return false
             }
         }
 
         telemetry.humidity?.let {
             if (it < 0 || it > 100) {
-                return@validateTelemetry false
+                return false
             }
         }
 
-        telemetry.hPa?.let {
+        telemetry.pressure?.let {
             if (it < 0 || it > 1500) {
-                return@validateTelemetry false
+                return false
             }
         }
 
@@ -165,7 +177,7 @@ class TelemetryProcessing {
         val result = cloudTable.createIfNotExists() // returns true if the table was created
 
         // for demo purposes only. Adds some dummy calibration data
-        if (result && tableName.equals("Calibration")) {
+        if (result && tableName == "Calibration") {
             val calibration = CalibrationEntity()
             with(calibration) {
                 partitionKey = _partitionKey
