@@ -24,20 +24,19 @@ import java.util.*
 class TelemetryProcessing {
 
     private val _partitionKey: String = System.getenv("PartitionKey")
-
     private val storageConnectionString = System.getenv("StorageConnectionString")
+    private val signalRUrl: String? = System.getenv("AzureSignalRUrl")
+
     private val storageAccount: CloudStorageAccount = CloudStorageAccount.parse(storageConnectionString)
     private val tableClient: CloudTableClient = storageAccount.createCloudTableClient()
     private val deviceStateTable: CloudTable = getTableReference(tableClient, "DeviceState")
     private val calibrationTable: CloudTable = getTableReference(tableClient, "Calibration")
     private var top: TableOperation? = null
 
-    private val signalRUrl: String? = System.getenv("AzureSignalRUrl")
-
 
     @FunctionName("TelemetryProcessing")
     fun run(
-            @EventHubTrigger(name = "devicesEventHub", eventHubName = "messages/events", connection = "IotHubConnectionString", consumerGroup = "telemetry-processor", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
+            @EventHubTrigger(name = "AzureIotHub", eventHubName = "messages/events", connection = "IotHubConnectionString", consumerGroup = "telemetry-processor", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
             context: ExecutionContext
     ) {
         var maxRetry:Int
@@ -95,7 +94,6 @@ class TelemetryProcessing {
     }
 
     private fun calibrate(environment: EnvironmentEntity) {
-        // https://docs.microsoft.com/en-us/azure/cosmos-db/table-storage-how-to-use-java
         top = TableOperation.retrieve(_partitionKey, environment.deviceId, CalibrationEntity::class.java)
         val calibrationData = calibrationTable.execute(top).getResultAsType<CalibrationEntity>()
 
@@ -137,7 +135,6 @@ class TelemetryProcessing {
 
 
     private fun validateTelemetry(telemetry: EnvironmentEntity): Boolean {
-
         telemetry.temperature?.let {
             if (it < -10 || it > 70) {
                 return false
@@ -164,7 +161,6 @@ class TelemetryProcessing {
             return value
         }
         return round(value * slope + intercept)
-
     }
 
 
