@@ -36,10 +36,11 @@ class TelemetryProcessing {
 
     @FunctionName("TelemetryProcessing")
     fun run(
-            @EventHubTrigger(name = "AzureIotHub", eventHubName = "messages/events", connection = "IotHubConnectionString", consumerGroup = "telemetry-processor", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
+            @EventHubTrigger(name = "AzureIotHub", eventHubName = "messages/events", connection = "IotHubConnectionString", consumerGroup = "\$Default", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
             context: ExecutionContext
     ) {
-        var maxRetry:Int
+        var maxRetry: Int
+        val deviceState = mutableMapOf<String, EnvironmentEntity>()
 
         message.forEach { environment ->
 
@@ -83,17 +84,23 @@ class TelemetryProcessing {
                         deviceStateTable.execute(top)
                     }
 
-                    val gson = GsonBuilder().create()
-                    val json = gson.toJson(environment)
-
-                    if (postRequest(json) != HttpURLConnection.HTTP_OK) {
-                        context.logger.info("POST to SignalR failed")
-                    }
+                    deviceState[environment.deviceId!!] = environment
 
                     break
 
                 } catch (e: java.lang.Exception) {
                     context.logger.info(e.message)
+                }
+            }
+        }
+
+        if (deviceState.count() > 0){
+            val gson = GsonBuilder().create()
+
+            deviceState.forEach {
+                val json = gson.toJson(it.value)
+                if (postRequest(json) != HttpURLConnection.HTTP_OK) {
+                    context.logger.info("POST to SignalR failed")
                 }
             }
         }
