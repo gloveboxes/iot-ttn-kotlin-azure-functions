@@ -51,12 +51,7 @@ class TelemetryProcessing {
 
                 try {
                     top = TableOperation.retrieve(_partitionKey, environment.deviceId, EnvironmentEntity::class.java)
-
-                    var existingEntity: EnvironmentEntity? = null
-                    val result = deviceStateTable.execute(top)
-                    if (result.etag != null) {
-                        existingEntity = result.getResultAsType()
-                    }
+                    val existingEntity = deviceStateTable.execute(top).getResultAsType<EnvironmentEntity>()
 
                     calibrate(environment)
 
