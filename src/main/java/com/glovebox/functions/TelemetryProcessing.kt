@@ -64,6 +64,12 @@ class TelemetryProcessing {
                         break
                     }
 
+                    with(environment) {
+                        partitionKey = _partitionKey
+                        rowKey = environment.deviceId
+                        timestamp = Date()
+                    }
+
                     if (existingEntity?.etag != null) {
                         environment.etag = existingEntity.etag
                         environment.count = existingEntity.count
@@ -103,10 +109,6 @@ class TelemetryProcessing {
                 humidity = scale(humidity, it.HumiditySlope, it.HumidityYIntercept)
                 pressure = scale(pressure, it.PressureSlope, it.PressureYIntercept)
             }
-
-            partitionKey = _partitionKey
-            rowKey = environment.deviceId
-            timestamp = Date()
         }
     }
 
