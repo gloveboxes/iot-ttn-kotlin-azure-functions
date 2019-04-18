@@ -15,6 +15,9 @@ import java.math.RoundingMode
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.*
+import java.util.concurrent.ThreadLocalRandom
+import kotlin.math.min
+import kotlin.math.pow
 
 // https://aspnetmonsters.com/2016/08/2016-08-27-httpclientwrong/
 // https://dzone.com/articles/running-kotlin-in-azure-functions
@@ -33,10 +36,14 @@ class TelemetryProcessing {
     private val calibrationTable: CloudTable = getTableReference(tableClient, "Calibration")
     private var top: TableOperation? = null
 
+    // Optimistic Concurrency Tuning Parameters
+    val ocBase:Long = 50
+    val ocCap:Long = 1000 // 1000 milliseconds
+
 
     @FunctionName("TelemetryProcessing")
     fun run(
-            @EventHubTrigger(name = "AzureIotHub", eventHubName = "messages/events", connection = "IotHubConnectionString", consumerGroup = "\$Default", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
+            @EventHubTrigger(name = "AzureIotHub", eventHubName = "messages/events", connection = "IotHubConnectionString", consumerGroup = "telemetry-processor", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
             context: ExecutionContext
     ) {
         var maxRetry: Int
@@ -84,8 +91,14 @@ class TelemetryProcessing {
                     break
 
                 } catch (e: java.lang.Exception) {
-                    context.logger.info(e.message)
+                    val interval = calcExponentialBackoff(maxRetry)
+                    Thread.sleep(interval)
+                    context.logger.info("Optimistic Consistency Backoff interval $interval")
                 }
+            }
+
+            if (maxRetry >= 10){
+                context.logger.info("Failed to commit")
             }
         }
 
@@ -99,6 +112,11 @@ class TelemetryProcessing {
                 }
             }
         }
+    }
+
+    private  fun calcExponentialBackoff(attempt: Int) : Long{
+        val base = ocBase * Math.pow(2.0, attempt.toDouble())
+        return ThreadLocalRandom.current().nextLong(ocBase,min(ocCap, base.toLong()))
     }
 
     private fun calibrate(environment: EnvironmentEntity) {
