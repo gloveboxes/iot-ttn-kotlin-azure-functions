@@ -38,8 +38,8 @@ class TelemetryProcessing {
     private val calibrationMap = mutableMapOf<String?, CalibrationEntity?>()
 
     // Optimistic Concurrency Tuning Parameters
-    val ocBase:Long = 50
-    val ocCap:Long = 1000 // 1000 milliseconds
+    private val occBase:Long = 40 // 40 milliseconds
+    private val occCap:Long = 1000 // 1000 milliseconds
 
 
     @FunctionName("TelemetryProcessing")
@@ -116,8 +116,8 @@ class TelemetryProcessing {
     }
 
     private  fun calcExponentialBackoff(attempt: Int) : Long{
-        val base = ocBase * Math.pow(2.0, attempt.toDouble())
-        return ThreadLocalRandom.current().nextLong(ocBase,min(ocCap, base.toLong()))
+        val base = occBase * Math.pow(2.0, attempt.toDouble())
+        return ThreadLocalRandom.current().nextLong(occBase,min(occCap, base.toLong()))
     }
 
     private fun calibrate(environment: EnvironmentEntity) {
