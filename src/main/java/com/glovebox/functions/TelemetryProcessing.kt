@@ -17,7 +17,6 @@ import java.net.URL
 import java.util.*
 import java.util.concurrent.ThreadLocalRandom
 import kotlin.math.min
-import kotlin.math.pow
 
 // https://aspnetmonsters.com/2016/08/2016-08-27-httpclientwrong/
 // https://dzone.com/articles/running-kotlin-in-azure-functions
@@ -36,6 +35,8 @@ class TelemetryProcessing {
     private val calibrationTable: CloudTable = getTableReference(tableClient, "Calibration")
     private var top: TableOperation? = null
 
+    private val calibrationMap = mutableMapOf<String?, CalibrationEntity?>()
+
     // Optimistic Concurrency Tuning Parameters
     val ocBase:Long = 50
     val ocCap:Long = 1000 // 1000 milliseconds
@@ -43,7 +44,7 @@ class TelemetryProcessing {
 
     @FunctionName("TelemetryProcessing")
     fun run(
-            @EventHubTrigger(name = "AzureIotHub", eventHubName = "messages/events", connection = "IotHubConnectionString", consumerGroup = "telemetry-processor", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
+            @EventHubTrigger(name = "AzureIotHub", eventHubName = "messages/events", connection = "IotHubConnectionString", consumerGroup = "\$Default", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
             context: ExecutionContext
     ) {
         var maxRetry: Int
@@ -120,8 +121,16 @@ class TelemetryProcessing {
     }
 
     private fun calibrate(environment: EnvironmentEntity) {
-        top = TableOperation.retrieve(_partitionKey, environment.deviceId, CalibrationEntity::class.java)
-        val calibrationData = calibrationTable.execute(top).getResultAsType<CalibrationEntity>()
+        val calibrationData:CalibrationEntity?
+
+        if (calibrationMap.containsKey(environment.deviceId)){
+            calibrationData = calibrationMap[environment.deviceId]
+        }
+        else {
+            top = TableOperation.retrieve(_partitionKey, environment.deviceId, CalibrationEntity::class.java)
+            calibrationData = calibrationTable.execute(top).getResultAsType<CalibrationEntity>()
+            calibrationMap[environment.deviceId] = calibrationData
+        }
 
         with(environment) {
             calibrationData?.let {
