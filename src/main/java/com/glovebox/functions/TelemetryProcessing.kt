@@ -15,6 +15,8 @@ import java.math.RoundingMode
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.*
+import java.util.concurrent.ThreadLocalRandom
+import kotlin.math.min
 
 // https://aspnetmonsters.com/2016/08/2016-08-27-httpclientwrong/
 // https://dzone.com/articles/running-kotlin-in-azure-functions
@@ -32,6 +34,12 @@ class TelemetryProcessing {
     private val deviceStateTable: CloudTable = getTableReference(tableClient, "DeviceState")
     private val calibrationTable: CloudTable = getTableReference(tableClient, "Calibration")
     private var top: TableOperation? = null
+
+    private val calibrationMap = mutableMapOf<String?, CalibrationEntity?>()
+
+    // Optimistic Concurrency Tuning Parameters
+    private val occBase:Long = 40 // 40 milliseconds
+    private val occCap:Long = 1000 // 1000 milliseconds
 
 
     @FunctionName("TelemetryProcessing")
@@ -89,8 +97,14 @@ class TelemetryProcessing {
                     break
 
                 } catch (e: java.lang.Exception) {
-                    context.logger.info(e.message)
+                    val interval = calcExponentialBackoff(maxRetry)
+                    Thread.sleep(interval)
+                    context.logger.info("Optimistic Consistency Backoff interval $interval")
                 }
+            }
+
+            if (maxRetry >= 10){
+                context.logger.info("Failed to commit")
             }
         }
 
@@ -106,9 +120,22 @@ class TelemetryProcessing {
         }
     }
 
+    private  fun calcExponentialBackoff(attempt: Int) : Long{
+        val base = occBase * Math.pow(2.0, attempt.toDouble())
+        return ThreadLocalRandom.current().nextLong(occBase,min(occCap, base.toLong()))
+    }
+
     private fun calibrate(environment: EnvironmentEntity) {
-        top = TableOperation.retrieve(_partitionKey, environment.deviceId, CalibrationEntity::class.java)
-        val calibrationData = calibrationTable.execute(top).getResultAsType<CalibrationEntity>()
+        val calibrationData:CalibrationEntity?
+
+        if (calibrationMap.containsKey(environment.deviceId)){
+            calibrationData = calibrationMap[environment.deviceId]
+        }
+        else {
+            top = TableOperation.retrieve(_partitionKey, environment.deviceId, CalibrationEntity::class.java)
+            calibrationData = calibrationTable.execute(top).getResultAsType<CalibrationEntity>()
+            calibrationMap[environment.deviceId] = calibrationData
+        }
 
         with(environment) {
             calibrationData?.let {
