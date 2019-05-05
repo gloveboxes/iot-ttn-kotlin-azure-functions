@@ -36,7 +36,7 @@ class TelemetryProcessing {
 
     @FunctionName("TelemetryProcessing")
     fun run(
-            @EventHubTrigger(name = "AzureIotHub", eventHubName = "messages/events", connection = "IotHubConnectionString", consumerGroup = "\$Default", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
+            @EventHubTrigger(name = "AzureIotHub", eventHubName = "glovebox-iothub", connection = "IotHubConnectionString", consumerGroup = "kotlin-enviromon-functions", cardinality = Cardinality.MANY) message: List<EnvironmentEntity>,
             context: ExecutionContext
     ) {
         var maxRetry: Int
@@ -50,8 +50,10 @@ class TelemetryProcessing {
                 maxRetry++
 
                 try {
-                    top = TableOperation.retrieve(_partitionKey, environment.deviceId, EnvironmentEntity::class.java)
-                    val existingEntity = deviceStateTable.execute(top).getResultAsType<EnvironmentEntity>()
+
+                    if (environment.deviceId == null){
+                        break
+                    }
 
                     calibrate(environment)
 
@@ -59,6 +61,9 @@ class TelemetryProcessing {
                         context.logger.info("Data failed validation.")
                         break
                     }
+
+                    top = TableOperation.retrieve(_partitionKey, environment.deviceId, EnvironmentEntity::class.java)
+                    val existingEntity = deviceStateTable.execute(top).getResultAsType<EnvironmentEntity>()
 
                     with(environment) {
                         partitionKey = _partitionKey
